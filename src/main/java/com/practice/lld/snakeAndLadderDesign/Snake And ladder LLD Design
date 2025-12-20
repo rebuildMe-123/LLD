@@ -1,0 +1,507 @@
+
+   Snake & Ladder LLD design
+   ---------------
+
+   Step 1:
+   Requirement gathering & Functional Requirements & Action Flow
+
+   Action Flow:
+      a. We have a game board, every cell has coordinates either its a free cell or occupied by some object either snake or ladder
+      b. Players can take their chance, & in each chance they can throw the dice & based on that count they can move forward & end cell will
+         have a check whether it has some kind of object or not.
+      c. if player reaches last cell then he ll win, first & last cell are free cell.
+      d. Consider Cell value in game board from 0 to 99, once player reach 99, he ll win.
+
+
+
+   Object Identification:
+   --------------------
+      a. GameBoard
+      b. cell (x, y)
+      c. Snake
+      d. Ladder : for snake & ladder we can have Map<cell, cell> where key -> cell(start pt) & value -> cell(end pt)
+               -> for snake: key will be higher cordinate & val will be lower cordinate
+               -> for ladder: key will be lower cordinate & val will be higher cordinate.
+      e. Player:
+      f. GameController : this will be a orchestrator class.
+      g. Leaderbard
+      h. GameState(Enum): IN_progress, IDLE, Completed
+      i. GameResult: (Enum) (EXIT, Draw, LOST, WON)
+      j. dice
+      h.
+
+  Class Object roles & Entity:
+  ---------------------------
+     a. cell
+         -> x, y
+         -> +Cell(x,y) :- initialize x & y
+
+     b.  Player:
+         -> id, name
+         -> currPoss: (cell)
+
+     c.  gameBoard
+         ->
+         Attributes:
+            -> size
+            -> boardObjects: (Map<cell, cell> ): this holds the start & end pos of the objects whether snake & ladder
+            -> List<Players> players: this contains list of player
+         Methods:
+             + Cell findCellPos(int val)  {
+                 -> this method gives the cordinate of the cell upon providing the cell value
+                    int x = val%10;
+                    int y = val/10;
+                    return new cell(x,y);
+              }
+
+             + void makeMove(int playerIndex) {
+                   // get player object from index
+                   Player player = players.get(playerIndex);
+                   // run the dice
+                   int diceVal = getDiceVal(1); // pass no of dice as we can scale the dice count
+                   // get the curr poss of the player & add the diceVal
+                   int currPoss = player.getCurrPoss() + diceVal;
+                   // check whether currPoss has any object
+               }
+
+              + int getDiceVal(int dice) {
+                  int cnt = 0;
+                   while(dice > 0) {
+                        cnt += randInt()%6 + 1;
+                        dice -=1;
+                   }
+                   return cnt;
+               }
+
+
+              + setBoardObject() {
+                  // populate the snake & ladder positions in the map
+               }
+
+              + checkWinner() {
+                  // Implement the winning strategy pattern using strategy design pattern if required
+                  // after every
+              }
+
+
+
+
+     d. GameController:
+        Attributes:
+          -> GameBoard board
+          ->
+        Methods:
+          -> void initialize(int n) {
+                // initialize the board
+                  board = new gameBoard(int n)
+
+                 // set ladders & snakes
+                  board.setBoardObjects()
+
+                 // set Players
+                 board.setPlayers();
+
+                 // curr Index
+                 board.setCurrIndex = -1;
+
+            }
+
+          -> void startGame() {
+               while(true) {
+                   Player player = Players.get(board.getCurrIndx());
+                   // make move, update the correct pos of the player by checking the any object on cell
+                   board.makeMove( player)
+                   // after move, check whether its a winning move
+                   if (winningMove(player)) {
+                       // curr player has won
+                       // exiting the game
+                       break;
+                   }
+
+               }
+
+          }
+
+
+
+    Chat gpt review:
+    -----------------------
+
+
+    Great — thanks for sharing your doc.
+    I’ll review this **exactly like an interviewer for an SDE-2 LLD round**, not like a code reviewer. I’ll be honest, structured, and corrective where needed.
+
+    I’ll cover:
+
+    1. Overall interviewer verdict
+    2. Step-by-step feedback on **your document**
+    3. What is **good and should be kept**
+    4. What is **incorrect / risky in interview**
+    5. What is **missing**
+    6. How to **present this better in an interview**
+    7. A cleaned-up **mental model** you should aim for
+
+    ---
+
+    ## 1️⃣ Overall Interviewer Verdict
+
+    👉 **Verdict:**
+    You are thinking correctly, your fundamentals are solid, but your design is **slightly implementation-heavy and slightly over-complicated in the wrong places**.
+
+    **Rating (SDE-2 bar): 7 / 10**
+
+    With a few corrections, this can easily become **8.5+**, which is where strong SDE-2 answers sit.
+
+    ---
+
+    ## 2️⃣ Step-by-Step Review of Your Document
+
+    ---
+
+    ## ✅ Step 1: Requirement Gathering & Action Flow
+
+    ### What you did well
+
+    * You clearly explained the **game flow**
+    * You correctly identified:
+
+      * Dice → move
+      * Snake / ladder redirection
+      * Win condition
+    * Mentioned first & last cell are free → 👍
+
+    ### Minor issues / improvements
+
+    #### ❌ Cell coordinates (x, y) too early
+
+    In Snake & Ladder, the **coordinate system is an implementation detail**, not a requirement.
+
+    Interviewers think in **positions**, not grid math.
+
+    👉 Better abstraction:
+
+    * Cell index: `0 to 99` or `1 to 100`
+    * Board size configurable
+
+    You can still internally convert to `(x, y)` later, but **don’t highlight it in requirements**.
+
+    ---
+
+    ### ✅ Suggested Interview Wording
+
+    > “The board consists of numbered cells from 1 to N.
+    > A player moves based on dice value, and snakes or ladders redirect the player if present.”
+
+    This sounds cleaner and more senior.
+
+    ---
+
+    ## 3️⃣ Object Identification – Review
+
+    Your identified objects:
+
+    ✔ GameBoard
+    ✔ Cell
+    ✔ Snake
+    ✔ Ladder
+    ✔ Player
+    ✔ GameController
+    ✔ Leaderboard
+    ✔ GameState
+    ✔ GameResult
+    ✔ Dice
+
+    ### 👍 What is GOOD
+
+    * Clear separation of entities
+    * Dice as a separate object → very good
+    * GameState enum → good thinking
+    * GameController as orchestrator → expected
+
+    ---
+
+    ### ❌ What is unnecessary / premature
+
+    #### 🔴 Leaderboard
+
+    For **Snake & Ladder LLD**, leaderboard is **out of scope unless explicitly asked**.
+
+    Including it early:
+
+    * Dilutes focus
+    * Risks interviewer interrupting you
+
+    👉 Best approach:
+
+    > “Leaderboard can be added later; I’ll focus on core gameplay.”
+
+    ---
+
+    #### 🔴 GameResult enum (EXIT, LOST, DRAW)
+
+    Snake & Ladder has:
+
+    * WON
+    * IN_PROGRESS
+
+    “DRAW” is almost never applicable.
+    “EXIT” is UI-level concern.
+
+    👉 This enum **adds noise**, not value.
+
+    ---
+
+    ## 4️⃣ Class Design Review (Most Important Section)
+
+    Now the **real evaluation**.
+
+    ---
+
+    ## ❌ Biggest Design Issue: `GameBoard` Doing Too Much
+
+    Your `GameBoard` currently:
+
+    * Holds players ❌
+    * Rolls dice ❌
+    * Makes moves ❌
+    * Checks winner ❌
+    * Holds snakes/ladders ✅
+
+    This is a **Single Responsibility Principle violation**.
+
+    ### Interviewer red flag:
+
+    > “Why is the board rolling dice and controlling turns?”
+
+    ---
+
+    ## ✅ Correct Responsibility Split (Very Important)
+
+    ### ✅ GameBoard
+
+    **Only responsible for board state**
+
+    * Size
+    * Snakes & ladders
+    * Resolving final position
+
+    ```text
+    GameBoard
+    - int size
+    - Map<Integer, Integer> transitions
+
+    + int getFinalPosition(int position)
+    ```
+
+    ---
+
+    ### ✅ Dice
+
+    ```text
+    Dice
+    + roll(): int
+    ```
+
+    ---
+
+    ### ✅ Player
+
+    ```text
+    Player
+    - id
+    - name
+    - position
+    ```
+
+    ---
+
+    ### ✅ Game (or GameEngine)
+
+    This is missing / blurred in your design.
+
+    ```text
+    Game
+    - Queue<Player> players
+    - Dice dice
+    - GameBoard board
+    - GameState state
+
+    + playTurn()
+    + movePlayer(Player)
+    + checkWinner(Player)
+    ```
+
+    👉 This class should own:
+
+    * Turn order
+    * Dice roll
+    * Player movement
+
+    ---
+
+    ### ❌ `findCellPos(int val)` is unnecessary
+
+    Snake & Ladder **does not need 2D traversal logic**.
+
+    Use:
+
+    ```java
+    int newPosition = oldPosition + diceValue;
+    ```
+
+    Coordinates complicate discussion without benefit.
+
+    ---
+
+    ## 5️⃣ Snake & Ladder Representation (You Did This Well)
+
+    ### 👍 This part is GOOD:
+
+    ```text
+    Map<Cell, Cell>
+    ```
+
+    But I’d suggest simplifying to:
+
+    ```text
+    Map<Integer, Integer>
+    ```
+
+    Why?
+
+    * Cleaner
+    * Faster
+    * Less object overhead
+    * Interviewer-friendly
+
+    You can still explain:
+
+    > “Key is start, value is end.”
+
+    ---
+
+    ## 6️⃣ GameController Review
+
+    ### 👍 Good
+
+    * You used it as an orchestrator
+    * Initialization logic is clear
+
+    ### ❌ Issue
+
+    You mixed **game lifecycle** and **game logic**.
+
+    👉 Better:
+
+    * GameController → starts/stops game
+    * Game → runs turns
+
+    ---
+
+    ## 7️⃣ Missing Pieces (Important for SDE-2)
+
+    ### 🔴 1. Turn Management
+
+    You should explicitly mention:
+
+    * Queue or circular list of players
+    * FIFO order
+
+    Example:
+
+    ```java
+    Queue<Player> players;
+    ```
+
+    ---
+
+    ### 🔴 2. Exact Win Rule
+
+    Classic Snake & Ladder usually requires:
+
+    * **Exact dice roll** to reach final cell
+
+    You didn’t mention this.
+
+    Interviewers may ask:
+
+    > “What if dice overshoots?”
+
+    You should say:
+
+    * Ignore move OR
+    * Stay in same position
+
+    ---
+
+    ### 🟡 3. Multiple Dice / Dice Strategy (Optional)
+
+    You hinted at scaling dice → good
+    But don’t over-implement it.
+
+    ---
+
+    ## 8️⃣ How to Present This in a Real Interview (Key Advice)
+
+    ### ❌ What NOT to do
+
+    * Jump into method implementations
+    * Write modulo math for board
+    * Over-explain enums
+
+    ---
+
+    ### ✅ Ideal Interview Flow (Use This)
+
+    1. Clarify rules
+    2. Lock entities
+    3. Explain responsibilities
+    4. Show class relationships
+    5. Discuss extensions
+
+    ### 🎯 Sample SDE-2 Answer
+
+    > “I’ll separate concerns clearly:
+    > the board only knows about snakes and ladders,
+    > the game engine controls turns and dice rolls,
+    > and players only store position.”
+
+    This sentence alone signals **strong design maturity**.
+
+    ---
+
+    ## 9️⃣ Final Teacher Feedback (Honest)
+
+    ### ✅ Strengths
+
+    * Correct game understanding
+    * Clean entity identification
+    * Good instincts around scalability
+    * Dice abstraction is good
+
+    ### ❌ Needs Improvement
+
+    * Overloaded GameBoard
+    * Too implementation-heavy
+    * Some unnecessary abstractions
+    * Missing turn & win-edge cases
+
+    ---
+
+    ## ⭐ Final Score
+
+    **7 / 10 → Easily improvable to 8.5+**
+
+    ---
+
+    ## What I Recommend Next
+
+    We can do one of these next (your choice):
+
+    1️⃣ Refactor this design into **clean interview-grade LLD**
+    2️⃣ Convert this into **perfect UML**
+    3️⃣ Write **clean pseudo-code only (no noise)**
+    4️⃣ Do a **mock interviewer grilling session**
+
+    Just tell me 👍
+
