@@ -1,0 +1,814 @@
+   Elevator Design
+   ---------------
+
+   Step 1:
+   -> Understand the flow, Functional Requirements & Requirement Gathering & note it down to lower the chance of any further confusion.
+      Action Flow:
+          client approach -> building -> elevator -> external button (up/down) -> goes inside the lift -> press the floor -> client reach/ exit
+
+      Functional Requirements:
+          0. we have a building which has multiple floors & multiple lifts.
+             Every floor has a external control which has up/down button later floor options can be added to make it more extensible.
+          1. For floor selection user has the choice to select the floor within the lift. Other choices are also there.
+          2. there are multiple lifts available so if any person presses the button at any floor, Lift should come to that floor following these rules
+               a. lift should come following the same direction as requested & minim distance away.
+               b. if option a is not valid then get the one which is in the same direction
+               c. if both not possible, get the idle one
+
+              -> multiple strategies can be possible to operate a lift which we can manage by strategy design pattern & implement the multiple strategies classes
+                 & these can be managed by elevator controller.
+          3. Functioning of Lift/elevator
+             a. A lift should be aware about the floors & direction which it needs to move, if targetFloors are empty then it can sit idle else keep moving.
+             b. if lift is going down then either it will go to the lowest floor or minm floor requested i.e max(minm_floor, minm_floor_requested)
+                similarly while going up minm(max_floor, max_floor_requested). This comes under functioning of lift.
+             c. How will a elevator will serve the requested List?
+                -> suppose a elevator has list of floor which it needs to serve, along with that lift has following details
+                   -> current_floor -> known
+                   -> next_floor.  -> need to calculate, can be dynamic
+                   -> curr_direction -> UP
+                  Approach 1:
+                      1. we ll use two heaps min_heap for up direction & max_heap for down direction.
+                      2. whenever req comes then we ll check the curr floor if the req floor > curr_floor then we ll add the req floor to
+                         the minHeap else maxHeap.
+                      3. Details implementation is there in ELevator/Lift class
+
+
+
+
+      Requirement gathering:
+          1. multiple elevators -> yes
+          2. multiple floors -> yes
+          3. building/tower -> single
+          4. external/Internal control -> yes
+          5. externally can i choose up/down or floor no as well?
+          6.
+
+   Step 2:
+   -> Object/entity Identification
+          1. building
+          2. elevator
+          3. floor
+          4. liftControl -> external & internal -> button
+          5. ElevatorController (Orchestrator who ll manage multiple elevator, elevator will act as simple Pojo)
+          6. LiftState (ENUM -> UP, DOWN, IDLE)
+          7. LiftSelectionStrategy (Interface) -> multiple Impl classes or strategy concrete class will implement this interface, mainly used for lift selection
+             from the buckets of list when any request will come.
+          8. ElevatorControl Interface -> can be implemented by two different concrete classes
+               a. ExternalElevatorControl
+               b. InternalElevatorControl
+
+
+    Step 3:
+    -> UML Diagram/ Object/class descriptions
+        a. Elevator (POJO)
+           attributes:
+           InternalElevatorControl control;
+           LiftState currentState;  // up, down, IDLE
+           list<floor> targetFloors;  5, 3, 7, 1
+           Priority_queue<Integer> minHeap;  // it will be used while moving up
+           Priority_queue<Integer> maxHeap;  // will be used while moving down
+           int currFloor; // it must be something
+           int nextFloor;  // will be calculated dynamically depending on the dire
+
+           /**
+                TODO:
+                 ->  how a lift will solve the floor issue/requests
+                 ->  if a lift has certain floor to serve then it will serve all those floors then only go to idle state
+           **/
+
+
+           Methods:
+           + void closeDoor();
+           + void openDoor();
+           + void addFloor(int floorNo) {
+
+               if (floorNo > currFloor) {
+                    minHeap.add(currFloor)
+               }
+               else {
+                    maxHeap.add(currFloor)
+               }
+
+            }
+           + void getNextFloor() {
+                 if (currentState.equals(UP)) {
+                    if (!minHeap.isEmpty()) {
+                          nextFloor = minHeap.top();
+                          minHeap.pop();
+                    }
+                    else {
+                       currentState.set(DOWN); // up requests have been served
+                    }
+
+                 }
+                 else if(currentState.equals(Down)) {
+                      if(!maxHeap.isEmpty()) {
+                          nextFloor = maxHeap.top();
+                          maxHeap.pop();
+                      }
+                      else {
+                           currentState.set(DOWN); // up requests have been served
+                      }
+
+                 }
+                 else {
+                      sout("no floors available");
+                 }
+            }
+            + stopElevator() {
+                sout("stoping the lift")
+            }
+
+
+
+
+        c. Floor (POJO)
+           attributes:
+           floorNo (Int);
+           ExternalElevatorControl control;
+
+           methods:
+           selectNextFloor()
+
+        d. ElevatorController
+           attributes:
+            List<Elevator> elevators;
+            ElevatorSelectionStrategy strategy;
+
+           methods:
+           + Int assignElevator(currFloor Int, NextFloor Int) {
+                // use selection strategy & select a elevator
+                 ELevator elevator = findElevator(); // under the hood it can uses best possible algo
+                 elevator.addFloor(nextFloor);
+                 return elevator.id;
+
+             }
+
+           +
+
+
+
+    Design Review
+    --------------
+
+    Great problem choice 👍
+    Elevator LLD is **one of the most revealing SDE-2 design questions**, and you’re already **thinking at the right depth**. I’ll review this **as an interviewer**, not just as a friendly reviewer.
+
+    I’ll structure this into:
+
+    1. Overall verdict
+    2. Step-by-step evaluation of your answer
+    3. What you did **very well**
+    4. Where the design **breaks or weakens**
+    5. What is **missing for SDE-2**
+    6. How to **present this cleanly in interviews**
+    7. A corrected **mental model** you should aim for
+
+    ---
+
+    ## 1️⃣ Overall Interviewer Verdict
+
+    **Verdict:**
+    This is a **strong foundation**, but it’s currently **too implementation-driven and elevator-centric**, and not system-centric enough.
+
+    **Score (SDE-2 bar): 7 / 10**
+
+    With restructuring and clearer responsibility boundaries → **8.5+ easily**.
+
+    ---
+
+    ## 2️⃣ Step-by-Step Review
+
+    ---
+
+    ## ✅ Step 1: Requirements & Flow
+
+    ### What you did well
+
+    * Clear real-world flow
+    * Correct identification of:
+
+      * External buttons (up/down)
+      * Internal buttons (floor selection)
+      * Multiple elevators
+    * You explicitly mentioned **selection rules** → ⭐ very good
+
+    This already puts you above many candidates.
+
+    ---
+
+    ### ⚠️ Improvements Needed
+
+    #### 🔴 Over-specification too early
+
+    You jumped quickly into:
+
+    * Distance calculation
+    * Direction prioritization
+    * Heap-based scheduling
+
+    In interviews, this can backfire because:
+
+    * Interviewer might want to steer strategy
+    * You reduce flexibility
+
+    ### Better interview phrasing:
+
+    > “There can be multiple elevator selection strategies based on direction, distance, or load. I’ll abstract that behind a strategy interface.”
+
+    Say **what**, not **how**, first.
+
+    ---
+
+    ## 3️⃣ Functional Requirements Review
+
+    ### ✅ Strong points
+
+    * You clearly separated:
+
+      * External vs internal requests
+    * You thought about:
+
+      * Directional movement
+      * Idle state
+    * Heap approach is **industry-standard** (SCAN / LOOK algorithm) → 👍
+
+    ---
+
+    ### ❌ Problems / Ambiguities
+
+    #### 🔴 Requirement vs Implementation mixing
+
+    This part is a red flag:
+
+    > “use two heaps min_heap and max_heap”
+
+    That’s **implementation**, not requirement.
+
+    Interviewers expect:
+
+    * Behavior first
+    * Data structure later *if asked*
+
+    ---
+
+    ## 4️⃣ Object Identification Review
+
+    Your identified objects are **mostly correct**:
+
+    ✔ Building
+    ✔ Elevator
+    ✔ Floor
+    ✔ Control (external & internal)
+    ✔ ElevatorController
+    ✔ LiftState
+    ✔ Selection Strategy
+
+    This is good.
+
+    ---
+
+    ### ❌ What’s missing / under-modeled
+
+    #### 🔴 Request (Very Important)
+
+    You **must** introduce a `Request` object.
+
+    Elevator systems are **request-driven**.
+
+    ```text
+    Request
+    - sourceFloor
+    - destinationFloor (optional for external)
+    - direction
+    - requestTime
+    ```
+
+    Without this:
+
+    * Scheduling logic becomes messy
+    * Strategies become hard to evolve
+
+    Interviewers **expect** this abstraction.
+
+    ---
+
+    #### 🟡 Door as first-class entity (optional)
+
+    Not mandatory, but senior candidates sometimes add:
+
+    ```text
+    Door
+    - open()
+    - close()
+    - isOpen
+    ```
+
+    ---
+
+    ## 5️⃣ Elevator Class Review (Most Critical Section)
+
+    This is where most improvement is needed.
+
+    ---
+
+    ### ❌ Elevator is doing too much
+
+    Your `Elevator`:
+
+    * Manages heaps
+    * Decides direction
+    * Calculates next floor
+    * Opens/closes doors
+    * Handles scheduling
+
+    This violates **SRP**.
+
+    ---
+
+    ### ✅ Correct Role of Elevator
+
+    An elevator should:
+
+    * Know current floor
+    * Know direction
+    * Execute commands
+    * Maintain local queue
+
+    **It should NOT decide which requests to take globally.**
+
+    That belongs to the controller.
+
+    ---
+
+    ### ❌ Heap logic inside Elevator (Risky)
+
+    Heap logic is good, but:
+
+    👉 It should be abstracted into a **Scheduler / RequestQueue**.
+
+    Example:
+
+    ```text
+    ElevatorScheduler
+    - PriorityQueue upQueue
+    - PriorityQueue downQueue
+
+    + addRequest()
+    + getNextStop()
+    ```
+
+    Elevator then *delegates*.
+
+    ---
+
+    ### ❌ Bugs in logic (interviewer WILL catch these)
+
+    1. `minHeap.add(currFloor)`
+       → should be `floorNo`
+    2. `currentState.set(DOWN)` twice
+    3. No boundary checks
+    4. No concurrency handling (acceptable to mention later)
+
+    These aren’t fatal, but **don’t write such code in interview unless asked**.
+
+    ---
+
+    ## 6️⃣ ElevatorController Review
+
+    ### ✅ Good
+
+    * Central orchestrator
+    * Strategy-based selection
+    * Manages elevator pool
+
+    This is **correct architecture**.
+
+    ---
+
+    ### ❌ Missing responsibilities
+
+    ElevatorController should also:
+
+    * Accept requests
+    * Dispatch requests
+    * Track elevator load / state
+    * Handle failures (optional mention)
+
+    ---
+
+    ## 7️⃣ What Is Missing for SDE-2 Level
+
+    ### 🔴 1. Explicit Request Lifecycle
+
+    You should explain:
+
+    1. External request created
+    2. Controller selects elevator
+    3. Request assigned
+    4. Elevator serves stops
+    5. Request completes
+
+    This **narrative clarity matters**.
+
+    ---
+
+    ### 🔴 2. State Machine Thinking
+
+    Mention elevator states explicitly:
+
+    ```text
+    MOVING
+    STOPPED
+    IDLE
+    MAINTENANCE
+    ```
+
+    Even if not implemented, **mentioning it scores points**.
+
+    ---
+
+    ### 🟡 3. Concurrency (Mention Only)
+
+    Say:
+
+    > “In real systems, multiple requests arrive concurrently, so request assignment must be thread-safe.”
+
+    You don’t need to implement it.
+
+    ---
+
+    ## 8️⃣ How Interviewers EXPECT This Answer (Golden Flow)
+
+    ### ❌ What hurts candidates
+
+    * Writing heap logic too early
+    * Writing code before UML
+    * Over-optimizing prematurely
+
+    ---
+
+    ### ✅ Ideal Interview Flow (Use This Template)
+
+    1. Clarify requirements
+    2. Identify entities
+    3. Separate responsibilities
+    4. Introduce strategy pattern
+    5. Show request flow
+    6. Discuss scheduling briefly
+    7. Mention extensions
+
+    ---
+
+    ### 🎤 High-Impact Interview Statement
+
+    > “The elevator controller is the brain that assigns requests, elevators are executors, and scheduling logic is pluggable.”
+
+    This single sentence signals **senior design maturity**.
+
+    ---
+
+    ## 9️⃣ Final Teacher Feedback
+
+    ### ✅ Strengths
+
+    * Very good real-world understanding
+    * Correct strategy pattern usage
+    * Correct scheduling intuition
+    * Proper controller concept
+
+    ### ❌ Needs Improvement
+
+    * Overloaded Elevator class
+    * Missing Request abstraction
+    * Mixing requirements with implementation
+    * Too much low-level code too early
+
+    ---
+
+    ## ⭐ Final Score
+
+    **7 / 10 → Strong base, needs architectural polishing*
+
+
+
+
+    Final Design
+    -------------
+
+    Perfect 👍
+    Below is a **clean, corrected, interview-ready Elevator LLD answer** in **the SAME FORMAT you used**, but:
+
+    * Architecturally sound (SDE-2 level)
+    * Clear separation of responsibilities
+    * Includes **pseudo-code style Java snippets**
+    * Avoids over-engineering but is coding-round friendly
+
+    This is something you can **reproduce in an interview or convert to Java quickly**.
+
+    ---
+
+    # 🚀 Elevator System – Final Corrected LLD Answer (SDE-2 Ready)
+
+    ---
+
+    ## Step 1: Requirement Gathering & System Workflow
+
+    ### 1.1 Action Flow
+
+    1. User enters the building.
+    2. At a floor, user presses **external button** (UP / DOWN).
+    3. Elevator controller assigns the best elevator.
+    4. Elevator arrives, doors open.
+    5. User enters elevator and presses **internal floor button**.
+    6. Elevator serves requests and drops user at destination.
+    7. Elevator becomes IDLE when no requests remain.
+
+    ---
+
+    ### 1.2 Functional Requirements
+
+    #### Core Requirements
+
+    1. Building has **multiple floors** and **multiple elevators**.
+    2. Each floor has **external controls** (UP / DOWN).
+    3. Each elevator has **internal controls** (destination floors).
+    4. Elevator should:
+
+       * Move UP / DOWN / stay IDLE
+       * Serve requests efficiently
+    5. System should support **different elevator selection strategies**.
+    6. First priority:
+
+       * Elevator moving in the **same direction**
+       * Nearest elevator
+       * Else an IDLE elevator
+
+    ---
+
+    ### 1.3 Non-Functional Requirements (Mention Only)
+
+    * Extensible (more floors, elevators)
+    * Thread-safe (multiple requests)
+    * Fault-tolerant (optional mention)
+
+    ---
+
+    ## Step 2: Object / Entity Identification
+
+    ### Core Entities
+
+    1. **Building**
+    2. **Floor**
+    3. **Elevator**
+    4. **Request**
+    5. **ElevatorController**
+    6. **ElevatorScheduler**
+    7. **Control Panels**
+
+       * ExternalElevatorControl
+       * InternalElevatorControl
+
+    ### Supporting Enums / Interfaces
+
+    8. **Direction (ENUM)** → UP, DOWN
+    9. **ElevatorState (ENUM)** → MOVING, IDLE, STOPPED
+    10. **ElevatorSelectionStrategy (Interface)**
+
+    ---
+
+    ## Step 3: Class Responsibilities & Design
+
+    ---
+
+    ### 3.1 Request (VERY IMPORTANT)
+
+    ```java
+    class Request {
+        int sourceFloor;
+        int destinationFloor; // -1 for external request
+        Direction direction;
+    }
+    ```
+
+    Why this matters:
+
+    * Clean scheduling
+    * Strategy based assignment
+    * Extensible (time, priority, VIP)
+
+    ---
+
+    ### 3.2 Elevator (POJO – Executor Only)
+
+    ```java
+    class Elevator {
+        int id;
+        int currentFloor;
+        Direction direction;
+        ElevatorState state;
+
+        ElevatorScheduler scheduler;
+
+        void move() {
+            Integer nextStop = scheduler.getNextStop(direction);
+            if (nextStop == null) {
+                state = ElevatorState.IDLE;
+                return;
+            }
+            state = ElevatorState.MOVING;
+            currentFloor = nextStop;
+            openDoor();
+            closeDoor();
+        }
+
+        void addRequest(Request req) {
+            scheduler.addRequest(req);
+        }
+
+        void openDoor() {}
+        void closeDoor() {}
+    }
+    ```
+
+    ✔ Elevator **does NOT decide which requests to take**
+    ✔ Elevator **only executes assigned requests**
+
+    ---
+
+    ### 3.3 ElevatorScheduler (Key Design Fix)
+
+    Handles floor ordering logic.
+
+    ```java
+    class ElevatorScheduler {
+        PriorityQueue<Integer> upQueue = new PriorityQueue<>();
+        PriorityQueue<Integer> downQueue =
+            new PriorityQueue<>(Collections.reverseOrder());
+
+        void addRequest(Request req) {
+            if (req.direction == Direction.UP) {
+                upQueue.add(req.destinationFloor);
+            } else {
+                downQueue.add(req.destinationFloor);
+            }
+        }
+
+        Integer getNextStop(Direction dir) {
+            if (dir == Direction.UP && !upQueue.isEmpty()) {
+                return upQueue.poll();
+            }
+            if (dir == Direction.DOWN && !downQueue.isEmpty()) {
+                return downQueue.poll();
+            }
+            return null;
+        }
+
+        boolean isEmpty() {
+            return upQueue.isEmpty() && downQueue.isEmpty();
+        }
+    }
+    ```
+
+    👉 Heap logic is **isolated**, not polluting Elevator.
+
+    ---
+
+    ### 3.4 ElevatorController (System Brain)
+
+    ```java
+    class ElevatorController {
+        List<Elevator> elevators;
+        ElevatorSelectionStrategy selectionStrategy;
+
+        void handleExternalRequest(Request req) {
+            Elevator elevator = selectionStrategy.selectElevator(elevators, req);
+            elevator.addRequest(req);
+        }
+
+        void handleInternalRequest(int elevatorId, Request req) {
+            elevators.get(elevatorId).addRequest(req);
+        }
+    }
+    ```
+
+    ✔ Central orchestration
+    ✔ Strategy-based selection
+    ✔ Clean API
+
+    ---
+
+    ### 3.5 ElevatorSelectionStrategy (Strategy Pattern)
+
+    ```java
+    interface ElevatorSelectionStrategy {
+        Elevator selectElevator(List<Elevator> elevators, Request request);
+    }
+    ```
+
+    Example implementation (simplified):
+
+    ```java
+    class NearestElevatorStrategy implements ElevatorSelectionStrategy {
+        public Elevator selectElevator(List<Elevator> elevators, Request req) {
+            Elevator best = null;
+            int minDistance = Integer.MAX_VALUE;
+
+            for (Elevator e : elevators) {
+                if (e.state == ElevatorState.IDLE ||
+                    e.direction == req.direction) {
+
+                    int dist = Math.abs(e.currentFloor - req.sourceFloor);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        best = e;
+                    }
+                }
+            }
+            return best;
+        }
+    }
+    ```
+
+    ---
+
+    ### 3.6 Floor
+
+    ```java
+    class Floor {
+        int floorNo;
+        ExternalElevatorControl control;
+    }
+    ```
+
+    ---
+
+    ### 3.7 Control Panels
+
+    ```java
+    class ExternalElevatorControl {
+        ElevatorController controller;
+
+        void pressButton(int floor, Direction dir) {
+            controller.handleExternalRequest(
+                new Request(floor, -1, dir)
+            );
+        }
+    }
+
+    class InternalElevatorControl {
+        ElevatorController controller;
+        int elevatorId;
+
+        void pressFloor(int destFloor) {
+            controller.handleInternalRequest(
+                elevatorId,
+                new Request(-1, destFloor, null)
+            );
+        }
+    }
+    ```
+
+    ---
+
+    ## Step 4: System Workflow (End-to-End)
+
+    1. User presses UP/DOWN → ExternalControl
+    2. Request created
+    3. ElevatorController assigns elevator via strategy
+    4. ElevatorScheduler stores floor
+    5. Elevator moves & serves requests
+    6. When queues empty → Elevator becomes IDLE
+
+    ---
+
+    ## Step 5: Design Principles Used
+
+    * **Single Responsibility Principle**
+    * **Strategy Pattern** (elevator selection)
+    * **Separation of Concerns**
+    * **Open-Closed Principle** (new strategies easily added)
+
+    ---
+
+    ## Step 6: Extensions (Mention Only)
+
+    * Load-based scheduling
+    * Maintenance mode
+    * Priority users
+    * Destination dispatch
+    * Thread-safe request queues
+
+    ---
+
+    ## ⭐ Interview Closing Statement (IMPORTANT)
+
+    > “The controller decides *which elevator* handles a request,
+    > the scheduler decides *how requests are ordered*,
+    > and the elevator simply *executes movements*.”
+
+
+
+
+
+
