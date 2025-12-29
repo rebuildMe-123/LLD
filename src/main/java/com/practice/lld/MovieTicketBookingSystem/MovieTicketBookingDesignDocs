@@ -1,0 +1,538 @@
+
+    Movie Ticket Booking System Design
+    -----------------------------------
+
+   *** Problem Statement ***:
+    -------------------
+    Design a movie ticket booking system like Book My Show.
+
+
+
+   ***. Event Action FLow / Working of this System
+       client/user
+         |
+       Movie ticket App/ BookMyShow/ District App
+         |
+       Select City (City Driven Architecture)
+         |
+       Lists all the Movies available / User has the search/filter option here
+         |
+       Movie Selected ->  Languagae selected -> Screen type selected
+         |
+       Lists all the theatres where this movie is available -> Add ons (sort by loc, sort by price, sort by Screen type, etc)
+         |
+       Theatres Selected
+         |
+       Show Selected
+       -> timing & seat selected (Once this is selected , we need to lock this as user enters the resource allocation part & this is
+          limited resource)
+         |
+       event-Locked/ Seat-locked -> other concurrent user will not be able to see the specific seats as its in locked state for some time until its confirmed
+         |
+       Payment
+         |
+       Completed -> Booked state
+
+   **** Questions/clarifications :
+      a. can we have concurrent user requests for booking?  -
+          > Yes that's mvp. Through this design biggest learning would be handling concurrent request to manage the limited resource allocation & locking strategies
+             & releasing locking as well via timeout or payment failure.
+
+      b. can we have just lists of events/movies or another layer on the top of it like organizers like in our case some abc mall, pvr, Inox
+          -> Yes , good to add the organizer/Theatres layer
+
+      c. If payment fail do we want our user to come to the main screen or come to the previous state?
+          -> seat selection state would be preferred & release the lock for that specific resource.
+
+      d. Is 10 mins timeout for a seat selection or locking state is fine?
+         -> lets keep it as 5 mins, but yes it can be configurable by admins of the system/app.
+
+
+ **** Solution ****:
+
+ Class level Architecture:
+   -> this is city driven architecture, as a user they always select their city or location based on that we ll list all the movies/events & further list down
+      all the organizers for the same.
+   -> Rough Class Architecture:
+      User -> city -> [MOVIE] -> [Theatres] -> [Shows] -> SeatSelection -> Booking -> payment -> confirm
+
+
+ Core Object Identification:
+ 1. USER
+ 2. CITY
+ 3. MOVIE
+ 4. THEATER
+ 5. SHOW
+ 6. SCREEN
+ 7. SEAT
+ 8. BOOKING
+ 9. PAYMENT
+
+ ****   Object/ core Entities Identification & their responsibilities ******
+       1. User
+          + userId
+          + name
+          + userType (Enum : ADMIN, CLIENT)
+
+       2. CITY
+           + id
+           + desc
+
+       3. Movie
+             + id
+             + desc
+             + duration in minutes
+             + List<String> languages
+             + Rating rating
+
+       4. MovieController
+            + Map<CityId, List<MovieId>>
+
+            + addMovieToCity(cityId, MovieId)
+            + removeMovie(cityId, MovieId)
+            + listAllMoviesByCity(CityId)
+            + searchMovie(MovieFilter filter, cityId)
+
+       5. Theater
+            + id
+            + address: string
+            + cityId
+            + List<Screen> screens
+
+       6. Screen:
+            + id
+            + theaterId
+            + size
+            + List<Seat> availableSeats
+            + List<Show> shows
+
+       7. Show:
+            + id
+            + StartTime: timestamp
+            + screenId
+            + movieId
+            + List<Seat> bookedSeat
+            + showStatus: ShowStatus(ENUM-> STARTED, NOT_STARTED, CANCELLED)
+
+        8. Seat:
+             + id
+             + row
+             + col
+             + type: (SEAT_TYPE(ENUM -> silver, gold, platinum, recliner))
+
+        9. Booking
+              + id
+              + showId
+              + screenId
+              + userId
+              + List<Seat> bookedSeats
+              + status (BOOKED_STATUS(ENUM -> CONFIRMED, FAILED, NOT_CONFIRMED))
+
+
+        10. ShowManager
+              -> manage the show i.e seat booking, cancelling ticket
+
+              + listAllShows(theatreId, MovieId)
+              + listAllSeatsForAShow(showId)
+              + addShow()
+              + removeShow()
+              + addBooking(UserRequest request)
+
+
+        11. TheaterController
+             + Map<movieId, Theaters> theatersByMovie;
+             + findALltheatresByCity(cityId)
+             + findAllTheatersByMovie(cityId, movieId)
+
+        12. UserRequest
+             + userId
+             + List<Seat> seatSelected;
+             + showId
+
+
+
+
+
+
+
+ **** Different Process Handling ******
+    1. User Management & User Request Flow
+       -> discussed above
+
+    2. Booking Mgmt / concurrent control / locking mechanism
+       -> this concurreny control we can handle by adding a locking mechanishm or Synchronized block for the seat selection method
+          so that at a time only one user can access that part, Also for time limiting we can use REDIS timer for a lock which ll be giving that much locking
+          period.
+       -> i am leaving space for improvement here as i dont have much details on it, but i am curious to understand this.
+
+
+    3. Payment Mgmt
+       : we have already covered this multiple times.
+       : Normally we can have one paymentContextClass or payment orchestrator which ll drive the payment process & manage the payment state as well
+         Payment_State (payment_intiated, IN_PROCESS, COMPLETED, FAILED)
+       : we can have two strategy in our context class
+          1> FareCalculatorStrategy (BasefareCalStartegyImpl, PeakHoursFareCalStrategImpl)
+          2> PaymentStrategy(CardPaymentStrategy, UpiPaymentStrategy)
+
+
+
+ chatgpt review
+ --------------
+
+ Excellent work.
+ You are **90% there**, and your instincts are correct. Now I’ll do exactly what you asked:
+
+ 1. **Review & correct your happy-path LLD (like an interviewer)**
+ 2. **Explain concurrency & seat-locking in a VERY simple, memorable, practical way**
+ 3. **Show how to explain this confidently to an interviewer + handle cross-questions**
+ 4. **Give a clean, corrected “final mental model” you can keep forever**
+
+ I’ll keep **concurrency as a separate section**, as requested.
+
+ ---
+
+ # PART 1 — Review of Your Happy-Path Design (LLD)
+
+ ### Overall Verdict (Interviewer POV)
+
+ ✅ **Very good SDE-2 level design**
+ Minor corrections + structuring improvements needed.
+
+ ---
+
+ ## 👍 What You Did Very Well
+
+ ### 1️⃣ Core domain flow
+
+ ```
+ User → City → Movie → Theatre → Show → Seat → Booking → Payment
+ ```
+
+ ✔️ This is **exactly right**
+ ✔️ Interviewers expect this hierarchy
+
+ ---
+
+ ### 2️⃣ Entity identification
+
+ You identified **all correct entities**:
+
+ * Movie, Theatre, Screen, Show, Seat
+ * Booking
+ * Controllers / Managers
+
+ This is solid.
+
+ ---
+
+ ## ⚠️ Improvements / Corrections (Important)
+
+ ### ❌ Issue 1: `Seat` should NOT be global
+
+ Right now:
+
+ ```java
+ Seat -> id, row, col, type
+ ```
+
+ ⚠️ Problem:
+
+ * Seats are **screen-specific**
+ * Booking is **show-specific**
+
+ ### ✅ Correct model
+
+ ```java
+ Seat (static, belongs to Screen)
+ ShowSeat (dynamic, belongs to Show)
+ ```
+
+ **Correct structure**
+
+ ```
+ Screen
+  └── Seat (physical seat layout)
+
+ Show
+  └── ShowSeat (seat + booking state)
+ ```
+
+ This is **CRITICAL** for concurrency.
+
+ ---
+
+ ### ❌ Issue 2: Missing seat state
+
+ You didn’t model seat lifecycle explicitly.
+
+ ### ✅ Add this enum
+
+ ```java
+ enum SeatStatus {
+     AVAILABLE,
+     LOCKED,
+     BOOKED
+ }
+ ```
+
+ And in `ShowSeat`:
+
+ ```java
+ class ShowSeat {
+     seatId;
+     SeatStatus status;
+     lockedByUserId;
+     lockExpiryTime;
+ }
+ ```
+
+ ---
+
+ ### ❌ Issue 3: Booking status naming
+
+ Your:
+
+ ```java
+ CONFIRMED, FAILED, NOT_CONFIRMED
+ ```
+
+ Better:
+
+ ```java
+ CREATED, CONFIRMED, CANCELLED, EXPIRED
+ ```
+
+ This aligns with **real systems**.
+
+ ---
+
+ ### ❌ Issue 4: Redis mention (Interview scope)
+
+ You mentioned Redis.
+
+ ⚠️ For **LLD interview**, this is too early.
+
+ ✅ Say instead:
+
+ > “In-memory locking for now; can be extended to Redis in distributed systems.”
+
+ ---
+
+ ## ✅ Corrected Happy-Path LLD (Clean Version)
+
+ ### Core Entities (Refined)
+
+ ```text
+ City
+ Movie
+ Theatre
+ Screen
+ Seat (static layout)
+
+ Show
+ ShowSeat (Seat + status)
+
+ Booking
+ Payment
+ ```
+
+ ---
+
+ # PART 2 — CONCURRENCY & SEAT LOCKING (DEEP + SIMPLE)
+
+ This is the **heart of BookMyShow**.
+
+ I’ll explain this in **3 layers**:
+
+ 1. Intuition (never forget)
+ 2. Practical implementation
+ 3. Interview explanation + cross-questions
+
+ ---
+
+ ## 🧠 Layer 1: Intuition (Never Forget This)
+
+ ### Think of seats like **chairs in a room**
+
+ * AVAILABLE → chair is free
+ * LOCKED → someone is sitting but hasn’t paid yet
+ * BOOKED → paid, fixed
+
+ 🚨 **Key rule**
+
+ > Only **ONE person** can sit on a chair at a time.
+
+ ---
+
+ ## 🧠 Layer 2: Practical Seat Locking (Single JVM)
+
+ ### 🔑 Golden Rule
+
+ > **Lock seats, NOT shows, NOT screens**
+
+ Only lock **the specific seats selected**.
+
+ ---
+
+ ## Step-by-Step Locking Flow (Very Important)
+
+ ### 1️⃣ User selects seats
+
+ ```text
+ User A selects seats: A1, A2
+ ```
+
+ ### 2️⃣ System tries to LOCK seats
+
+ We do this **atomically**.
+
+ ```java
+ synchronized(showSeat) {
+    if (seat.status == AVAILABLE) {
+        seat.status = LOCKED;
+        seat.lockedByUserId = userId;
+        seat.lockExpiryTime = now + 5 mins;
+    } else {
+        throw SeatUnavailableException;
+    }
+ }
+ ```
+
+ ✔️ This ensures **no two users lock same seat**
+
+ ---
+
+ ### 3️⃣ Start lock timer
+
+ We store:
+
+ ```java
+ lockExpiryTime = currentTime + 5 minutes
+ ```
+
+ ---
+
+ ### 4️⃣ Payment success
+
+ ```java
+ seat.status = BOOKED;
+ booking.status = CONFIRMED;
+ ```
+
+ ---
+
+ ### 5️⃣ Payment failure OR timeout
+
+ ```java
+ seat.status = AVAILABLE;
+ seat.lockedByUserId = null;
+ ```
+
+ ---
+
+ ## 🧠 Layer 3: How to Explain This to Interviewer
+
+ ### 🎤 Perfect Interview Explanation
+
+ > “Seat locking happens at **show-seat level**.
+ > When a user selects seats, I atomically transition those seats from AVAILABLE to LOCKED.
+ > The lock has a timeout. If payment succeeds, seats move to BOOKED; otherwise, they revert to AVAILABLE.”
+
+ This sentence alone is **gold**.
+
+ ---
+
+ ## 🔥 Very Common Cross-Questions (With Answers)
+
+ ### Q1. What if two users select same seat at same time?
+
+ ✅ **Answer**
+
+ > “Seat-level synchronization ensures only one thread can lock a seat.”
+
+ ---
+
+ ### Q2. Why not lock entire show?
+
+ ❌ Bad idea:
+
+ * Kills concurrency
+ * Poor user experience
+
+ ✅ Say:
+
+ > “Locking is fine-grained at seat level.”
+
+ ---
+
+ ### Q3. What if user closes app?
+
+ ✅ Answer:
+
+ > “Lock expires automatically via timeout.”
+
+ ---
+
+ ### Q4. How do you release expired locks?
+
+ Two acceptable answers:
+
+ * Background cleanup thread
+ * Lazy cleanup during next access
+
+ Both are fine.
+
+ ---
+
+ ### Q5. Why not DB transactions?
+
+ For LLD:
+
+ > “In-memory locks are enough; DB transactions apply at persistence layer.”
+
+ ---
+
+ ## 🧠 Memory Trick (Never Forget)
+
+ > **BookMyShow = Seat State Machine + Timeout**
+
+ If you remember only this, you’ll never fail.
+
+ ---
+
+ # PART 3 — Final Corrected Design Summary (Keep This)
+
+ ### Seat State Machine
+
+ ```
+ AVAILABLE → LOCKED → BOOKED
+      ↑         |
+      └─────────┘ (timeout / payment failure)
+ ```
+
+ ---
+
+ ### Patterns Used (Say This Confidently)
+
+ | Concern      | Pattern               |
+ | ------------ | --------------------- |
+ | Booking flow | State Machine         |
+ | Seat locking | Synchronization       |
+ | Payment      | Strategy              |
+ | Pricing      | Strategy              |
+ | Controllers  | Facade / Orchestrator |
+
+ ---
+
+ ## Final Interviewer Verdict
+
+ ✅ **You are absolutely on the right track**
+ ✅ Your happy-path design is solid
+ ✅ Once concurrency is explained like this, **you are SDE-2 ready**
+
+
+
+
+
+
+
