@@ -1,0 +1,395 @@
+   Splitwise APP Design
+   --------------------
+👨‍💼 ***** Interviewer — Problem Statement (Refined) ******
+    Design an expense-sharing application similar to Splitwise.
+    The system should allow users to create groups, add shared expenses, and compute balances for each user.
+
+    ✅ Functional Requirements (LOCKED)
+    1️⃣ User & Group Management
+        1. A user can:
+            * Create a group
+            * Join a group
+        2. Each group has:
+            * One admin
+            * Multiple members
+        3. Only the group admin can:
+            * Add members
+            * Remove members
+
+    2️⃣ Expense Management
+        1. Any group member can:
+            * Add an expense to the group
+            * Edit an expense they created
+        2. An expense has:
+            * Amount
+            * Paid by (one or more users)
+            * Split among:
+                * All group members OR
+                * Selected members
+        3. Supported split types:
+            * Equal split
+            * Exact amount split
+            * Percentage split
+
+    3️⃣ Balance Calculation
+        1. The system should:
+            * Track how much each user owes and is owed
+        2. After every expense update:
+            * User balances should be recalculated
+        3. Users should be able to:
+            * View their net balance (overall)
+            * View balances group-wise
+
+    4️⃣ Settlement
+        1. A user can:
+            * Settle up with another user
+        2. Settlement:
+            * Reduces outstanding balances
+            * Does not delete expense history
+
+    ❌ Out of Scope (Explicitly)
+        * Real payment gateway
+        * Currency conversion
+        * Notifications
+        * Fraud detection
+        * Multiple devices sync
+
+    ⚙️ Non-Functional Requirements (IMPORTANT)
+        1. System should be:
+            * Thread-safe
+            * Handle concurrent expense additions
+        2. Expenses should support:
+            * Notes / description
+            * Comments by group members
+        3. The system should:
+            * Maintain an audit log of activities (expense added, edited, settled)
+        4. Design should be:
+            * Extensible
+            * Clean LLD-focused (not DB schema heavy)
+
+🔒 Assumptions (Locked)
+    * Single service (no microservices)
+    * In-memory storage
+    * Single currency
+    * Single JVM
+
+🧠 Interviewer Notes (Why This Structure Works)
+✔ Clear entities✔ Clear workflows✔ No ambiguity✔ Easy to ask follow-up questions✔ Perfect for SDE-2 LLD
+    This is exactly how the problem is framed in interviews at:
+    * Flipkart
+    * Uber
+    * Amazon
+    * Razorpay
+    * PhonePe
+    * Swiggy
+
+👨‍💼 Interviewer — Next Step
+“Looks good. Please start with your design approach:
+* Core workflow
+* Entity identification
+* Key classes and responsibilities”
+Whenever you’re ready, start with Step 1.
+
+
+
+***** Solution **********
+1. Core Workflow
+   => i will divide the workflow into subModule
+      a. group Formation
+         user -> register -> form group-> add Members/Invite members/remove member -> becomes Admin -> group formed
+
+      b. Expense Managements
+         user -> Add/edit expense(expense:-  name, desc)  -> split the expense (Multiple strategies here: equal split, percentage split, amount split)
+        -> update the balances of the group members(calculate each member balance like owes or owe, group wise balance like total expenses)
+
+      c. Settlement:
+         outstanding amount will be settled among group members
+
+2. Entity/Object Identification:
+   1. group Formation
+        a. user
+        b. userType (Enum)
+        c. group
+        d. groupController
+   2. Expense Management
+        a. Expense
+        b. ExpenseSplitStrategy
+        c. concrete classes for ExpenseSplitStrategy
+        d. UserBalance
+           : main objective of this to keep track of other members owing me, Map<userId(Int), amount(double)>
+        e. ExpenseManager : this will manage all the expense related methods/actions , like an orchestrator for expense
+
+   d. settlement
+        a. we can use the above classes or entities to manage this one as well
+
+
+   e. orchestrator:
+      SplitwiseService: groupController, ExpenseManager, ExpenseSplitStrategy
+
+
+
+ 3. Key classes and responsibilities”
+     a. user
+        + id
+        + name
+        + type
+     b. userType (Enum)
+        + ADMIN, USER, SUPER_USER (group based admin)
+
+     c. group
+        + id
+        + desc
+        + List<userId> users
+        + active: bool
+
+     d. groupController
+        + add/remove user
+        + inviteMember()
+        + getGroupLink()
+
+     e. Expense
+         + expenseId
+         + amount: double
+         + desc: string
+         + groupId: int
+         + List<Comment> comments; // Non functional
+         + addedBy : userId
+
+     f. ExpenseSplitStrategy
+         + Split(expense: Expense)
+
+     g. Concrete classes for Expense Split strategy:
+         + EqualExpenseSplitStrategy
+         + percentageSplitStrategy
+         + AmountBasedSplitStrategy
+
+     h. UserBalance
+        + userId
+        + Map<userId:Int, amountPending: String> amountOweByGroupMembers
+        + grpId
+
+     i. ExpenseManager
+         + addExpense(ExpenseRequest)
+         + updateExpense(ExpenseRequest)
+         + deleteExpense(ExpenseId)
+         + calculateBalance()
+         + settleOutstandingDues()
+
+     j. ExpenseRequest: POJO
+         + amount
+         + userId
+         + strategy
+         + desc
+         + grpId
+
+      h. ExpenseMgmtService: Orchestrator
+         + ExpenseManager expenseManager
+         + GroupController groupController
+         + ExpenseSplitStrategy strategyToUse
+
+
+
+   Chat gpt feedback:
+
+   Great attempt 👍 Your thinking direction is correct, and this is already SDE-2 level. Now I’ll do exactly what you asked:
+   1. ✅ Review your happy-path design
+   2. 🧠 Deep-dive the concurrency & balance part (very clearly, practically, and interview-ready)
+   3. 🔧 Refine / correct the model where needed
+   4. 📌 Give you a clean, final “interview-quality” design you can keep as notes
+   I’ll not redesign everything from scratch — I’ll evolve your solution.
+
+   1️⃣ High-Level Review of Your Design (Happy Path)
+   ✅ What You Did Well
+   * Correct module breakdown (Group, Expense, Settlement)
+   * Correct use of Strategy Pattern for splitting
+   * Good instinct to introduce:
+       * ExpenseManager
+       * Orchestrator (SplitwiseService)
+   * You separated:
+       * Expense creation
+       * Balance calculation
+       * Settlement
+   👉 This is already how an interviewer expects you to think.
+
+   ⚠️ Key Gaps (Important)
+   I’ll fix these:
+   1. Balance model is slightly incorrect
+   2. Settlement logic needs clarity
+   3. Concurrency needs a proper mental + implementation model
+   4. Some enums / responsibilities can be simplified
+
+   2️⃣ Core Concept You MUST Nail in Splitwise
+   Splitwise is NOT about expenses. It is about balances between users.
+   Expenses are events. Balances are state.
+   This one line is gold in interviews.
+
+   3️⃣ Correct Balance Model (Very Important)
+   ❌ Your Current Model
+   Map<userId, amountPending>
+   This is directionally okay but incomplete.
+
+   ✅ Correct Mental Model
+   For every group, maintain:
+   “Who owes whom, and how much?”
+   🔑 Balance Representation (Industry-Standard)
+   Map<UserId, Map<UserId, Double>>
+   Meaning:
+   balances[A][B] = X
+   → B owes A amount X
+   ✔ Direction is explicit ✔ Easy to settle ✔ Easy to simplify
+
+   📌 Example (Never Forget This)
+   Expense:
+   * Dinner = ₹300
+   * Paid by A
+   * Split among A, B, C
+   Each owes = ₹100
+   Balances:
+   balances[A][B] = 100
+   balances[A][C] = 100
+   That’s it.
+
+   4️⃣ Improved Entity Design (Minimal Changes)
+   1. User
+   class User {
+       int id;
+       String name;
+   }
+   No need for SUPER_USER — group admin can be managed at group level.
+
+   2. Group
+   class Group {
+       int id;
+       String name;
+       int adminUserId;
+       Set<Integer> members;
+       Map<Integer, Map<Integer, Double>> balances;
+   }
+   👉 balances belong to Group, not User (Interviewers LOVE this)
+
+   3. Expense
+   class Expense {
+       int expenseId;
+       double amount;
+       int groupId;
+       int paidByUserId;
+       String description;
+       List<ExpenseSplit> splits;
+   }
+
+   4. ExpenseSplit
+   class ExpenseSplit {
+       int userId;
+       double amount;
+   }
+
+   5. ExpenseSplitStrategy (Correct Usage)
+   interface ExpenseSplitStrategy {
+       List<ExpenseSplit> split(Expense expense, List<Integer> users);
+   }
+   Concrete:
+   * EqualSplitStrategy
+   * PercentageSplitStrategy
+   * ExactAmountSplitStrategy
+   ✅ Perfect use of Strategy pattern (you did this right)
+
+   5️⃣ ExpenseManager (Core Brain of System)
+   class ExpenseManager {
+
+       void addExpense(Expense expense) {
+           List<ExpenseSplit> splits = strategy.split(expense);
+
+           for (ExpenseSplit split : splits) {
+               if (split.userId != expense.paidByUserId) {
+                   updateBalance(
+                       expense.paidByUserId,
+                       split.userId,
+                       split.amount
+                   );
+               }
+           }
+       }
+
+       void updateBalance(int creditor, int debtor, double amount) {
+           balances.get(creditor)
+                   .put(debtor,
+                        balances.get(creditor).getOrDefault(debtor, 0.0) + amount);
+       }
+   }
+
+   6️⃣ Settlement (Simple & Clean)
+   Settle A ↔ B
+   void settle(int userA, int userB, int groupId) {
+       double amount = balances.get(userA).getOrDefault(userB, 0.0);
+
+       balances.get(userA).remove(userB);
+       balances.get(userB).remove(userA);
+   }
+   ✔ No expense deletion ✔ Just balance adjustment
+
+   7️⃣ 🔥 CONCURRENCY — Explained Clearly (This Is What You Asked For)
+   This is where most candidates fail. You won’t.
+
+   Problem to Solve
+   * Multiple users add expenses at the same time
+   * Balance updates must be consistent
+   * No partial updates
+
+   ❌ Wrong Approach
+   synchronized addExpense()
+   This blocks the entire system ❌
+
+   ✅ Correct, Interview-Ready Approach
+   🧠 Concept:
+   Concurrency should be handled at GROUP level, not system level
+
+   🎯 Solution: Per-Group Lock
+   class Group {
+       ReentrantLock lock = new ReentrantLock();
+   }
+
+   Expense Addition with Lock
+   void addExpense(Expense expense) {
+       Group group = groupRepo.get(expense.groupId);
+
+       group.lock.lock();
+       try {
+           // calculate splits
+           // update balances
+           // store expense
+       } finally {
+           group.lock.unlock();
+       }
+   }
+
+   Why This Is Perfect
+   ✔ Users in different groups can add expenses concurrently ✔ Users in same group are serialized ✔ Easy to implement ✔ Interviewers love this explanation
+
+   ⏱ Optional Enhancement (Bonus)
+   * Optimistic locking using version numbers
+   * DB-level row locks (if persistent)
+   Mention only if asked.
+
+   8️⃣ Orchestrator (Clean & Interview-Friendly)
+   class SplitwiseService {
+       GroupController groupController;
+       ExpenseManager expenseManager;
+
+       void addExpense(ExpenseRequest request) {
+           Expense expense = expenseMapper.map(request);
+           expenseManager.addExpense(expense);
+       }
+   }
+
+   9️⃣ How to Explain This in Interview (Script)
+   “Expenses are immutable events. Balances are the core state. I maintain balances per group using a directed graph-like structure. Concurrency is handled using per-group locking to avoid global contention.”
+   That sentence alone puts you in top 10%.
+
+   🔒 Final Verdict
+   ✅ Your design direction → Correct 🔧 Needed refinements → Balances & concurrency 🎯 Final result → Strong SDE-2 Splitwise LLD
+
+
+
+
+
+
