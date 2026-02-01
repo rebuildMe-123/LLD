@@ -1,0 +1,206 @@
+
+Meeting Scheduler Design Qs
+-----------------------------
+system flow/ user flow
+-----------------
+
+    user
+     |
+    Calendar
+     |
+    select Day from the calendar
+     |
+    select slot
+     |
+    locked slot
+     |
+    add booking details
+     |
+    Booking confirmed/ Booking fail(release the lock)
+
+
+
+    Obj/entities identification
+    ---------------------
+    1. user
+    2. Day
+    3. SlotController
+    4. slot
+    5. Booking
+    6. BookingController (Orchestrator)
+    7. BookingStatus (Enum)
+    8. SlotStatus (Enum)
+
+
+    Core classes Responsibilities
+    -------------------
+    -> crux of this problem is to handle the concurrency as multiple user can access the slots.
+
+    a. Calendar
+       + Map<Month, List<Day>> daysByMonthDetails;
+
+    b. Day
+       +dayId
+       +desc
+       +List<slot> slots
+
+    b. CalendarController
+       + listAllDays()
+       + listAllSlots()
+
+    c. slot
+       + startTs
+       + endTs
+       + slotStatus (ENUM: BOOKED, LOCKED, AVAILABLE)
+       + lockedByUserId (Only applicable when slotStatus is Locked)
+       + lockedTimer (this timer can be managed by IN memory lock mechanism or timer later we can use distributed locking redis for the same)
+
+    d. Booking
+       + id
+       + List<user> inviteduser
+       + slot
+       + BookingStatus(ENUM: CONFIRMED, CANCELLED, EXPIRED, )
+
+    e. BookingController
+       + public void bookSlot(UserRequest request, Slot slot) {
+              Synchronized(slot) {
+                 if (slot.status == AVAILABLE) {
+                     slot.status = LOCKED
+                     slot.setTimer = now + minutes.5
+                     slot.lockedTimer = userId
+                     // #TODO handle booking or return locked slot & manage booking in next phase
+
+                 }
+              }
+              else {
+                 throw new SlotUnavailableException()
+              }
+         }
+
+
+
+#TODO
+
+1. Design Meeting Scheduler.
+2. Design Calendar or scheduler or meeting scheduler.
+
+
+** Design a meeting scheduler
+
+Req:
+   a. We have n meet rooms
+   b. Book @ any interval (strt, endtimeStamp), use cal for reference.
+   c. Add some invitess/user to the meeting
+   d. Notify all once meet confirmed or any further update on meeting
+   e. Persist all the past history of meetings
+   f. write an API for client who will give date and time and API should return meeting room with booked scheduled time.
+   g. client should also query for history of last 20 booked meetings.
+   h. client should also check if meet room available
+
+
+clarifications:
+   a. Can we expect concurrent req for booking? can we afford schdule collison here if yes then here we are dealing with room
+      so it would be difficult to manage overlapped schedules?
+      -> yes, lets lock before booking, may be we can go for soft-pessimistic/ time based pessimistic locking here.
+   b.
+
+User Req Flow
+--------------
+user -> calendarView -> select a slot/Interval -> m rooms available out of n rooms -> select room
+    -> lock the interval of that room -> start the timer for booking -> Booking confirmed -> send notification to all invitee users
+
+
+Object Identification:
+1. User
+2. Room
+3. Slot
+3a. SlotStatus(Enum)
+4. Meeting
+5. BookingStatus (Enum)
+6. MeetingController (controls the scheduling of meeting)
+7. BookingManager (Orchestrator)
+8. UserRequest
+
+
+Object/Entities Definition
+---------------------------
+1. user
+   + userId
+
+2. Room
+   + roomId
+
+3. UserReq
+   + userId
+   + startTimeTs
+   + endTimeTs
+   + roomId
+
+4. Slot (static info of slot)
+   + slotId
+   + SlotStatus status (AVAILABLE, LOCKED, BOOKED)
+   + startTimets
+   + endTimeTs
+
+5. DynamicSlot
+   + dynamicSlotId
+   + slotId
+   + lockedByUserId
+   + lockedTimer
+
+5. Meeting
+   + slotId
+   + List<user> Imvitee
+   + RoomId
+   + addUser(userId)
+   + removeUser(userId)
+
+6. MeetingController
+   + list<room> rooms;
+   + bookRoom(roomId, strt, endDt)
+
+5. SlotManager
+   + checkAvaialbleRooms(UserReq req)
+   + applyLock(roomId, startTs, EndTs)
+   + removeLock(slotId)
+
+
+6. Booking
+   + id
+   + MeetingID
+   + List<user> invitees
+   + BookingStatus (CONFIRMED, CANCELLED, EXPIRED)
+
+7. BookingManager
+   + getCalendarView()   // read api call for client to see the available or booked slots for the calendar days
+   + List<RoomId> checkAvialbleRooms(UserReq)  // list of rooms available for the slot
+   + Booking BookMeeting(UserReq req) // this time req populated with roomId
+      -> this will be locked or synchronized method as well gonna lock this slot & apply the in memory based timer later may be go with redis
+         for distributed locking.
+      -> NotifyAll(observers)
+   +
+
+
+Design Patterns Used:
+1. Observer pattern for notify all users added to the meeting.
+2. Factory design pattern for object creation
+3. facade layer as Booking Manager/orchestrator
+4. state design pattern for booking/slot state status management.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

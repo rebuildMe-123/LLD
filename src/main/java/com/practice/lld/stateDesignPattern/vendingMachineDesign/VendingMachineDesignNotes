@@ -1,0 +1,75 @@
+
+
+LLD for Vending M/c Sys design
+--------------------------------
+
+    System Flow:
+    : System is state driven. It has multiple states while operated by a user/client.
+    : IDLE/LIST_ITEMS -> ITEM-SELECTION -> CART_READY -> MAKE_PAYMENT -> PAYMENT_CONFIRMED -> ITEMS_DISPENSED -> IDLE
+    : user can exit any time while this system flow
+
+    Functional Requirements:
+    ----------------------
+    a. design a vending machine which can list items/products category wise.
+    b. It should maintain the inventory of the products available & intial screen of the system should display the categories
+       & once category selcted user can see all the items available for that product & all the metadata related details for that
+       product.
+    c. At a time only single user can use this m/c. user can move through all the system flow & accordingly can place the order for that.
+    d. At any time user can exit the process.
+    e. Design in a way which ll make it extensible in future & follows all the SOLID principles & s.t loosely coupled, scalable, readable
+
+
+    Objects Identified:
+    1. Category
+    2. product
+    3. machineState (Interface)
+       : concrete classes
+       a. IdleMachineState
+       b. SelectItemState
+       c. CartReadyState
+       d. PaymentState
+       e. PaymentConfirmState
+       f. ItemDispensedState
+    4. productManager (handles the inventory as well, if needed we can separate out the inventory manager)
+    5. VendingMachineController (Context class)/ Orchestrator
+
+
+   Entity/ class definitions
+   -------------------------
+   1. category
+      + categoryId
+      + desc
+
+   2. product
+      + productId
+      + categoryId
+      + price
+      + desc
+      + expiryDate
+
+
+   3. ProductManager
+      + Map<categoryId, List<product>> itemsByCategory;
+      + Map<productId, Integer> ItemsInStock;
+
+      + addItems(List<product> products)
+      + removeItems(List<products> products)
+      + updateInventory(productId, count, action(ADD, REMOVE))
+
+   3. MachineState (Interface)
+        + getStateDesc()
+        + changeNextState()
+        + listOutAllItems()
+        + exitOrder()
+        + itemSelection()
+        + finalizeCart()
+        + makePayment(Double amount)
+        + dispenseItem()
+
+   4. VendingMachineController
+        + MachineState currentState;
+        + ProductManager productManager
+        + checkOutItems(Map<ProductId, Integer> countWiseItems)
+
+
+

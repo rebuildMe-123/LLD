@@ -1,0 +1,69 @@
+
+    Rate Limiter Sys Design Notes
+    -----------------------------
+
+    **** Problem Statement. *****:
+    : Design a rate limiter service which job is to apply limit on user making an api call in a certain time frame,
+      This should support multiple rate limiting algo & can be extensible in future.
+
+    *** Functional Requirements ****:
+     1. Configurable Rate limits. the system should allow defining rate limits per user
+          rateLimit { userId, userType, timeWindow, maximumRequests, rateLimitingAlgo}
+        eg> system should support two different types of user lets say for normal user can make 10 api calls in 5 min window & for premium user can make
+        30 api calls in 5 mins. calls & time frame should not be a constant value & can be managed externally
+     2. System should support multiple rate limiting algo & should be extensible. client has the choice to choose the algo at runtime or on the fly
+        some famous rate limiting algos are:
+          1. fixed window rate limiting or counter based approach
+          2. Sliding window approach
+          3. Token bucket Algo
+     3. Request handling: System should have a filter layer before hitting the actual api logic to check whether user exceeds the configured limit based
+        on that allow the user to access the api. if fails return the response stating API call limit exceeded, try after some time with proper status code.
+
+     **** Non Functional Requirements ****:
+        1. extensible: system architecture should be extensible & follow decoupled architecture.
+        2. performance: rateLimit checks should be efficient enough or have low latency s.t doesn't impact the core api performance. It should use the
+           efficient data structures.
+        3. Concurrency: Multiple req from the same user can also be handled concurrently & safely in multi threaded env & ensure maintain atomic counter value
+           for that.
+
+     Objects Identified:
+     -------------------
+     1. userReq
+        + userId
+        + userType
+        + reqId (UUID: a unique id to identify each req)
+        + rateLimitConfig
+
+     2. userType (ENUM)
+        + USER, SUPER_USER
+
+     3. RateLimitConfig
+        + INT: Max_requests
+        + Duration in Seconds: Time_window
+        + Strategy: String
+
+     4. RateLimiterFilterService
+        + RateLimitingStrategy currStrategy
+        + currStrategy.checkLimitExceeded(userReq)
+
+     5. RateLimitingStrategy (Interface)
+        + checkLimitExceeded(userReq)
+
+     6. Concrete classes for RateLimitingStrategy
+        + CounterBasedStrategy
+        + SlidingWindowBasedStrategy
+        + TokenBucketBasedStrategy
+
+
+
+
+
+
+
+
+
+
+
+
+
+

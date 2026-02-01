@@ -1,4 +1,4 @@
-package com.practice.lld.MovieTicketBookingSystem;
+package com.practice.lld.concurrencyDesignQs.MovieTicketBookingSystem;
 
 public class MainApp {
 
