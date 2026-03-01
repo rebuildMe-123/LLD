@@ -1,0 +1,13 @@
+
+ AtmCashDispenserSystem Notes
+ ----------------------
+
+ Functional Requirements/Acceptance criteria
+ --------------------------------------------
+  1. user should pass the amount & get the cash for that if certain denominations or balance is available in atm
+  2. system has 3 denominations currently i.e 2000, 500, 100. But it can be extensible so design in that way
+  3. if specific cash req is not available then return false or say. amount cant be processed.
+
+
+
+  amount -> AtmCashDispenserService -> handler(chain of handler starts with highest denomination handler)
